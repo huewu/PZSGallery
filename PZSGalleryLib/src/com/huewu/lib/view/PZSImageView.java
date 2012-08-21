@@ -11,30 +11,31 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.widget.ImageView;
 
+/**
+ * class Pinch Zoom & Swipe Image View.
+ * @author huewu.yang
+ * @date 2012. 08. 23
+ */
 public class PZSImageView extends ImageView {
 
 	private static final String TAG = "GalleryImageView";
+	
+	public static final int PZS_ACTION_INIT = 100;
+	public static final int PZS_ACTION_SCALE = 1001;
+	public static final int PZS_ACTION_TRANSLATE = 1002;
+	public static final int PZS_ACTION_SCALE_TO_TRANSLATE = 1003;
+	public static final int PZS_ACTION_TRANSLATE_TO_SCALE = 1004;	
+	public static final int PZS_ACTION_FIT_CENTER = 1005;
+	public static final int PZS_ACTION_CANCEL = -1;
+	
+	//TODO below 3 values should be able to set from attributes.
 	private static final float MIN_SCALE_FACTOR = 0.5f;
 	private static final float MAX_SCALE_FACTOR = 2.f;
+	private static final long DOUBLE_TAP_MARGIN_TIME = 200;
 	
-	Matrix mCurrentMatrix = new Matrix();
-	Matrix mSavedMatrix = new Matrix();
-
-	// We can be in one of these 3 states
-	static final int NONE = 0;
-	static final int DRAG = 1;
-	static final int ZOOM = 2;
-	private static final long DOUBLE_TAB_MARGIN = 200;
-	int mMode = NONE;
-
-	// Remember some things for zooming
-	PointF mStartPoint = new PointF();
-	PointF mMidPoint = new PointF();
-	float mOldDist = 1f;
 	private boolean mIsFirstDraw = true;
 	private int mImageWidth;
 	private int mImageHeight;
-	private long mLastTocuhDownTime;
 
 	public PZSImageView(Context context) {
 		super(context);
@@ -83,72 +84,124 @@ public class PZSImageView extends ImageView {
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-
-		// Handle touch events here...
-		switch (event.getAction() & MotionEvent.ACTION_MASK) {
-		case MotionEvent.ACTION_DOWN:
-			long downTime = event.getDownTime();
-			Log.d(TAG, "TouchTime diff: " + (downTime - mLastTocuhDownTime));
-			if( downTime - mLastTocuhDownTime < DOUBLE_TAB_MARGIN ){
-				//double tab!
-				fitCenter();
-				mMode = NONE;
-			}else{
-				mSavedMatrix.set(mCurrentMatrix);
-				mStartPoint.set(event.getX(), event.getY());
-				Log.d(TAG, "mode=DRAG");
-				mMode = DRAG;
-			}
-			mLastTocuhDownTime = downTime;
+		
+		int action = parseMotionEvent(event);
+		
+		switch(action){
+		case PZS_ACTION_INIT:
+			initGestureAction(event.getX(), event.getY());
 			break;
-		case MotionEvent.ACTION_POINTER_DOWN:
-			mOldDist = spacing(event);
-			Log.d(TAG, "oldDist=" + mOldDist);
-			if (mOldDist > 3f) {
-				mSavedMatrix.set(mCurrentMatrix);
-				midPoint(mMidPoint, event);
-				mMode = ZOOM;
-				Log.d(TAG, "mode=ZOOM");
-			}
+		case PZS_ACTION_SCALE:
+			handleScale(event);
 			break;
-		case MotionEvent.ACTION_UP:
-		case MotionEvent.ACTION_POINTER_UP:
-			if( event.getPointerCount() == 2){
-				//remained active point cout is 1.
-				Log.d(TAG, "mode=DRAG");
-				int activeIndex = (event.getActionIndex() == 0 ? 1 : 0);
-				mStartPoint.set(event.getX(activeIndex), event.getY(activeIndex));
-				mSavedMatrix.set(mCurrentMatrix);
-				mMode = DRAG;
-			}else{
-				mMode = NONE;
-				Log.d(TAG, "mode=NONE");
-			}
+		case PZS_ACTION_TRANSLATE:
+			handleTranslate(event);
 			break;
-		case MotionEvent.ACTION_MOVE:
-			if (mMode == DRAG) {
-				// ...
-				mCurrentMatrix.set(mSavedMatrix);
-				mCurrentMatrix.postTranslate(event.getX() - mStartPoint.x,
-						event.getY() - mStartPoint.y);
-			}
-			else if (mMode == ZOOM) {
-				float newDist = spacing(event);
-				Log.d(TAG, "newDist=" + newDist);
-				if (newDist > 2f) {
-					mCurrentMatrix.set(mSavedMatrix);
-					float scale = newDist / mOldDist;
-					mCurrentMatrix.postScale(scale, scale, mMidPoint.x, mMidPoint.y);
-				}
-			}
+		case PZS_ACTION_TRANSLATE_TO_SCALE:
+			initGestureAction(event.getX(), event.getY());
+			break;
+		case PZS_ACTION_SCALE_TO_TRANSLATE:
+			int activeIndex = (event.getActionIndex() == 0 ? 1 : 0);
+			initGestureAction(event.getX(activeIndex), event.getY(activeIndex));
+			break;
+		case PZS_ACTION_FIT_CENTER:
+			fitCenter();
+			break;
+		case PZS_ACTION_CANCEL:
 			break;
 		}
-
-		setImageMatrix(mCurrentMatrix);
 		return true; // indicate event was handled
 	}
+
+	private int parseMotionEvent(MotionEvent ev) {
+		
+		switch (ev.getAction() & MotionEvent.ACTION_MASK) {
+		case MotionEvent.ACTION_DOWN:
+			if( isDoubleTap(ev) )
+				return PZS_ACTION_FIT_CENTER;
+			else
+				return PZS_ACTION_INIT;
+		case MotionEvent.ACTION_POINTER_DOWN:
+			//more than one pointer is pressed...
+			return PZS_ACTION_TRANSLATE_TO_SCALE;
+		case MotionEvent.ACTION_UP:
+		case MotionEvent.ACTION_POINTER_UP:
+			if( ev.getPointerCount() == 2 ){
+				return PZS_ACTION_SCALE_TO_TRANSLATE;
+			}else{
+				return PZS_ACTION_INIT;
+			}
+		case MotionEvent.ACTION_MOVE:
+			if( ev.getPointerCount() == 1 )
+				return PZS_ACTION_TRANSLATE;
+			else if( ev.getPointerCount() == 2 )
+				return PZS_ACTION_SCALE;
+			return 0;
+		}
+		return 0;
+	}
+
+	/*
+	 * protected methods.
+	 */
 	
-	private void fitCenter(){
+	private Matrix mCurrentMatrix = new Matrix();
+	private Matrix mSavedMatrix = new Matrix();
+
+	// Remember some things for zooming
+	private PointF mStartPoint = new PointF();
+	private PointF mMidPoint = new PointF();
+	private float mOldDist = 1f;
+	
+	private long mLastTocuhDownTime = 0;
+	private int mLastTouchPointerIndex = -1;
+	
+	/**
+	 * check 
+	 * @param current motion event.
+	 * @return true if user double tapped this view.
+	 */
+	protected boolean isDoubleTap(MotionEvent ev){
+
+		//TODO should check point index.
+		long downTime = ev.getDownTime();
+		long diff = downTime - mLastTocuhDownTime; 
+		Log.d(TAG, "TouchTime diff: " + diff);
+		mLastTocuhDownTime = downTime;
+		
+		return diff < DOUBLE_TAP_MARGIN_TIME;
+	}
+
+	protected void initGestureAction(float x, float y) {
+		mSavedMatrix.set(mCurrentMatrix);
+		mStartPoint.set(x, y);
+		mOldDist = 0.f;
+	}
+	
+	protected void handleScale(MotionEvent event){
+		float newDist = spacing(event);
+		if( mOldDist == 0.f ){
+			mOldDist = newDist;
+			midPoint(mMidPoint, event);
+			return;
+		}
+		
+		if (newDist > 2f) {
+			mCurrentMatrix.set(mSavedMatrix);
+			float scale = newDist / mOldDist;
+			mCurrentMatrix.postScale(scale, scale, mMidPoint.x, mMidPoint.y);
+			setImageMatrix(mCurrentMatrix);
+		}
+	}
+	
+	protected void handleTranslate(MotionEvent event){
+		mCurrentMatrix.set(mSavedMatrix);
+		mCurrentMatrix.postTranslate(event.getX() - mStartPoint.x,
+				event.getY() - mStartPoint.y);
+		setImageMatrix(mCurrentMatrix);
+	}
+	
+	protected void fitCenter(){
 		//move image to center....
 		mCurrentMatrix.reset();
 		
@@ -161,7 +214,7 @@ public class PZSImageView extends ImageView {
 		
 		mCurrentMatrix.postScale(scale, scale);
 		mCurrentMatrix.postTranslate(dx, dy);
-		
+		setImageMatrix(mCurrentMatrix);
 	}
 	
 	/** Determine the space between the first two fingers */
