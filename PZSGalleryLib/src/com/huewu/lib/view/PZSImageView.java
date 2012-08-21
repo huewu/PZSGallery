@@ -24,6 +24,7 @@ public class PZSImageView extends ImageView {
 	static final int NONE = 0;
 	static final int DRAG = 1;
 	static final int ZOOM = 2;
+	private static final long DOUBLE_TAB_MARGIN = 200;
 	int mMode = NONE;
 
 	// Remember some things for zooming
@@ -33,6 +34,7 @@ public class PZSImageView extends ImageView {
 	private boolean mIsFirstDraw = true;
 	private int mImageWidth;
 	private int mImageHeight;
+	private long mLastTocuhDownTime;
 
 	public PZSImageView(Context context) {
 		super(context);
@@ -85,10 +87,19 @@ public class PZSImageView extends ImageView {
 		// Handle touch events here...
 		switch (event.getAction() & MotionEvent.ACTION_MASK) {
 		case MotionEvent.ACTION_DOWN:
-			mSavedMatrix.set(mCurrentMatrix);
-			mStartPoint.set(event.getX(), event.getY());
-			Log.d(TAG, "mode=DRAG");
-			mMode = DRAG;
+			long downTime = event.getDownTime();
+			Log.d(TAG, "TouchTime diff: " + (downTime - mLastTocuhDownTime));
+			if( downTime - mLastTocuhDownTime < DOUBLE_TAB_MARGIN ){
+				//double tab!
+				fitCenter();
+				mMode = NONE;
+			}else{
+				mSavedMatrix.set(mCurrentMatrix);
+				mStartPoint.set(event.getX(), event.getY());
+				Log.d(TAG, "mode=DRAG");
+				mMode = DRAG;
+			}
+			mLastTocuhDownTime = downTime;
 			break;
 		case MotionEvent.ACTION_POINTER_DOWN:
 			mOldDist = spacing(event);
