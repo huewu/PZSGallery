@@ -138,19 +138,21 @@ public class PZSImageView extends ImageView {
 	}
 	
 	private void fitCenter(){
+		//move image to center....
 		mCurrentMatrix.reset();
 		
-		//move image to center....
-		float dx = (getWidth() - getPaddingLeft() - getPaddingRight() - mImageWidth) / 2.f;
-		float dy = (getHeight() - getPaddingTop() - getPaddingBottom() - mImageHeight) / 2.f;
+		float scaleX = (getWidth() - getPaddingLeft() - getPaddingRight()) / (float)mImageWidth;
+		float scaleY = (getHeight() - getPaddingTop() - getPaddingBottom()) / (float)mImageHeight;
+		float scale = Math.min(scaleX, scaleY);
 		
-		mCurrentMatrix.setTranslate(dx, dy);
+		float dx = (getWidth() - getPaddingLeft() - getPaddingRight() - mImageWidth * scale) / 2.f;
+		float dy = (getHeight() - getPaddingTop() - getPaddingBottom() - mImageHeight * scale) / 2.f;
+		
+		mCurrentMatrix.postScale(scale, scale);
+		mCurrentMatrix.postTranslate(dx, dy);
+		
 	}
 	
-	private void fitZoom(){
-		
-	}
-
 	/** Determine the space between the first two fingers */
 	private float spacing(MotionEvent event) {
 		// ...
