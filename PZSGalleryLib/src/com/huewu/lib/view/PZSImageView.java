@@ -34,7 +34,6 @@ public class PZSImageView extends ImageView {
 	private boolean mIsFirstDraw = true;
 	private int mImageWidth;
 	private int mImageHeight;
-	private long mLastTocuhDownTime;
 
 	public PZSImageView(Context context) {
 		super(context);
@@ -87,10 +86,7 @@ public class PZSImageView extends ImageView {
 		// Handle touch events here...
 		switch (event.getAction() & MotionEvent.ACTION_MASK) {
 		case MotionEvent.ACTION_DOWN:
-			long downTime = event.getDownTime();
-			Log.d(TAG, "TouchTime diff: " + (downTime - mLastTocuhDownTime));
-			if( downTime - mLastTocuhDownTime < DOUBLE_TAB_MARGIN ){
-				//double tab!
+			if( isDoubleTab(event) ) {
 				fitCenter();
 				mMode = NONE;
 			}else{
@@ -99,7 +95,6 @@ public class PZSImageView extends ImageView {
 				Log.d(TAG, "mode=DRAG");
 				mMode = DRAG;
 			}
-			mLastTocuhDownTime = downTime;
 			break;
 		case MotionEvent.ACTION_POINTER_DOWN:
 			mOldDist = spacing(event);
@@ -147,8 +142,19 @@ public class PZSImageView extends ImageView {
 		setImageMatrix(mCurrentMatrix);
 		return true; // indicate event was handled
 	}
+
+	private long mLastTocuhDownTime = 0;
+	protected boolean isDoubleTab(MotionEvent ev){
+		long downTime = ev.getDownTime();
+		long diff = downTime - mLastTocuhDownTime; 
+		Log.d(TAG, "TouchTime diff: " + diff);
+		mLastTocuhDownTime = downTime;
+		
+		
+		return diff < DOUBLE_TAB_MARGIN;
+	}
 	
-	private void fitCenter(){
+	protected void fitCenter(){
 		//move image to center....
 		mCurrentMatrix.reset();
 		
