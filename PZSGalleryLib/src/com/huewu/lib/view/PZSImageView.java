@@ -153,7 +153,6 @@ public class PZSImageView extends ImageView {
 	private PointF mMidPoint = new PointF();
 	private float mOldDist = 1f;
 	
-	private long mLastTocuhDownTime = 0;
 	private int mLastTouchPointerIndex = -1;
 	
 	/**
@@ -208,8 +207,7 @@ public class PZSImageView extends ImageView {
 		Log.d(TAG, "TouchTime diff: " + diff);
 		mLastTocuhDownTime = downTime;
 		
-		
-		return diff < DOUBLE_TAB_MARGIN;
+		return diff < DOUBLE_TAP_MARGIN_TIME;
 	}
 	
 	protected void handleScale(){
