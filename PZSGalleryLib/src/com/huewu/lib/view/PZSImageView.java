@@ -106,6 +106,7 @@ public class PZSImageView extends ImageView {
 			break;
 		case PZS_ACTION_FIT_CENTER:
 			fitCenter();
+			initGestureAction(event.getX(), event.getY());
 			break;
 		case PZS_ACTION_CANCEL:
 			break;
@@ -153,19 +154,22 @@ public class PZSImageView extends ImageView {
 	private PointF mMidPoint = new PointF();
 	private float mOldDist = 1f;
 	
-	private int mLastTouchPointerIndex = -1;
-	
 	/**
-	 * check 
+	 * check user double tapped this view.. or not.
 	 * @param current motion event.
 	 * @return true if user double tapped this view.
 	 */
+	private long mLastTocuhDownTime = 0;
 	protected boolean isDoubleTap(MotionEvent ev){
-
-		//TODO should check point index.
+		//if old pointer is tapped?
+		if( ev.getPointerCount() > 1){ 
+			//if there are more than one pointer... reset
+			mLastTocuhDownTime = 0;
+			return false;
+		}
+		
 		long downTime = ev.getDownTime();
 		long diff = downTime - mLastTocuhDownTime; 
-		Log.d(TAG, "TouchTime diff: " + diff);
 		mLastTocuhDownTime = downTime;
 		
 		return diff < DOUBLE_TAP_MARGIN_TIME;
@@ -180,6 +184,7 @@ public class PZSImageView extends ImageView {
 	protected void handleScale(MotionEvent event){
 		float newDist = spacing(event);
 		if( mOldDist == 0.f ){
+			//scale gesture action is just started.
 			mOldDist = newDist;
 			midPoint(mMidPoint, event);
 			return;
@@ -198,30 +203,6 @@ public class PZSImageView extends ImageView {
 		mCurrentMatrix.postTranslate(event.getX() - mStartPoint.x,
 				event.getY() - mStartPoint.y);
 		setImageMatrix(mCurrentMatrix);
-	}
-
-	private long mLastTocuhDownTime = 0;
-	protected boolean isDoubleTab(MotionEvent ev){
-		long downTime = ev.getDownTime();
-		long diff = downTime - mLastTocuhDownTime; 
-		Log.d(TAG, "TouchTime diff: " + diff);
-		mLastTocuhDownTime = downTime;
-		
-		return diff < DOUBLE_TAP_MARGIN_TIME;
-	}
-	
-	protected void handleScale(){
-//		float newDist = spacing(event);
-//		Log.d(TAG, "newDist=" + newDist);
-//		if (newDist > 2f) {
-//			mCurrentMatrix.set(mSavedMatrix);
-//			float scale = newDist / mOldDist;
-//			mCurrentMatrix.postScale(scale, scale, mMidPoint.x, mMidPoint.y);
-//		}
-	}
-	
-	protected void handleTranslate(){
-		
 	}
 	
 	protected void fitCenter(){
