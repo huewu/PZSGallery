@@ -184,7 +184,7 @@ public class PZSImageView extends ImageView {
 	protected void handleScale(MotionEvent event){
 		float newDist = spacing(event);
 		if( mOldDist == 0.f ){
-			//scale gesture action is just started.
+			//init values. scale gesture action is just started.
 			mOldDist = newDist;
 			midPoint(mMidPoint, event);
 			return;
@@ -194,6 +194,8 @@ public class PZSImageView extends ImageView {
 			mCurrentMatrix.set(mSavedMatrix);
 			float scale = newDist / mOldDist;
 			mCurrentMatrix.postScale(scale, scale, mMidPoint.x, mMidPoint.y);
+			
+			//should check zoom limitation. 
 			setImageMatrix(mCurrentMatrix);
 		}
 	}
