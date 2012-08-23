@@ -200,6 +200,31 @@ public class PZSImageView extends ImageView {
 				event.getY() - mStartPoint.y);
 		setImageMatrix(mCurrentMatrix);
 	}
+
+	private long mLastTocuhDownTime = 0;
+	protected boolean isDoubleTab(MotionEvent ev){
+		long downTime = ev.getDownTime();
+		long diff = downTime - mLastTocuhDownTime; 
+		Log.d(TAG, "TouchTime diff: " + diff);
+		mLastTocuhDownTime = downTime;
+		
+		
+		return diff < DOUBLE_TAB_MARGIN;
+	}
+	
+	protected void handleScale(){
+//		float newDist = spacing(event);
+//		Log.d(TAG, "newDist=" + newDist);
+//		if (newDist > 2f) {
+//			mCurrentMatrix.set(mSavedMatrix);
+//			float scale = newDist / mOldDist;
+//			mCurrentMatrix.postScale(scale, scale, mMidPoint.x, mMidPoint.y);
+//		}
+	}
+	
+	protected void handleTranslate(){
+		
+	}
 	
 	protected void fitCenter(){
 		//move image to center....
