@@ -3,6 +3,9 @@ package com.example.galleryimageviewsample;
 import java.io.IOException;
 import java.io.InputStream;
 
+import com.huewu.lib.view.PZSImageView;
+import com.huewu.lib.view.PZSImageGalleryView;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Bitmap;
@@ -27,7 +30,7 @@ public class MainActivity extends Activity {
 		try {
 			is = getAssets().open("android2.jpg");
 	    	Bitmap bm = BitmapFactory.decodeStream(is);
-	        ImageView iv = (ImageView) findViewById(R.id.img);
+	        PZSImageGalleryView iv = (PZSImageGalleryView) findViewById(R.id.img);
 	        iv.setImageBitmap(bm);
 	    	is.close();
 		} catch (IOException e) {

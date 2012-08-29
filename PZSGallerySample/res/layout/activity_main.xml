@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent" >
 
-    <com.huewu.lib.view.PZSImageView
+    <com.huewu.lib.view.PZSImageGalleryView
         android:id="@+id/img"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
