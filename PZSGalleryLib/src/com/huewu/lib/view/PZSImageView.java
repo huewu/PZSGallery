@@ -7,6 +7,7 @@ import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.util.AttributeSet;
 import android.util.FloatMath;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.widget.ImageView;
 
@@ -78,7 +79,7 @@ public class PZSImageView extends ImageView {
 		if( mIsFirstDraw  == true ){
 			mIsFirstDraw = false;
 			fitCenter();
-			setScaleFactor();
+			calculateScaleFactorLimit();
 		}
 
 		setImageMatrix(mCurrentMatrix);
@@ -87,7 +88,7 @@ public class PZSImageView extends ImageView {
 		super.onDraw(canvas);
 	}
 
-	private void setScaleFactor() {
+	private void calculateScaleFactorLimit() {
 		
 		//set max / min scale factor. 
 		
@@ -129,6 +130,9 @@ public class PZSImageView extends ImageView {
 		case PZS_ACTION_CANCEL:
 			break;
 		}
+		
+		validateMatrix();
+		updateMatrix();
 		return true; // indicate event was handled
 	}
 
@@ -214,16 +218,15 @@ public class PZSImageView extends ImageView {
 			float scale = normalizeScaleFactor(mSavedMatrix, newSpan, mInitScaleSpan);
 			mCurrentMatrix.set(mSavedMatrix);
 			mCurrentMatrix.postScale(scale, scale, mMidPoint.x, mMidPoint.y);
-			setImageMatrix(mCurrentMatrix);
 		}
 	}
 
 	private float normalizeScaleFactor(Matrix curMat, float newSpan, float stdSpan) {
 		
-		float[] values = new float[9];
+		float values[] = new float[9];
 		curMat.getValues(values);
 		float scale = values[Matrix.MSCALE_X];
-
+			
 		if( stdSpan == newSpan ){
 			return scale;
 		} else {
@@ -239,12 +242,75 @@ public class PZSImageView extends ImageView {
 			}
 		}
 	}
+	
+	protected void validateMatrix(){
+		float values[] = new float[9];
+		mCurrentMatrix.getValues(values);
+		
+		//get current matrix values.
+		float scale = values[Matrix.MSCALE_X];
+		float tranX = values[Matrix.MTRANS_X];
+		float tranY = values[Matrix.MTRANS_Y];
+				
+		int imageHeight = (int) (scale * mImageHeight);
+		int imageWidth = (int) (scale * mImageWidth);
+		
+		//max x pos.
+		//min x pos.
+		
+		float minX = 0.f;
+		float maxX = 0.f;
+		float minY = 0.f;
+		float maxY = 0.f;
+		
+		//don't think about optimize code. first, just write case by case.
+
+		//check TOP & BOTTOM
+		if( imageHeight > getHeight() ){
+			//image height is taller than view
+			//MIN Y
+			minY = getHeight() - imageHeight - getPaddingTop() * 2.f;
+			//MAX Y
+			maxY = 0.f;
+		}else{
+			minY = 0.f;
+			minY = maxY = (getHeight() - imageHeight - getPaddingTop() - getPaddingBottom() ) / 2.f;
+		}
+
+		//check LEFT & RIGHT
+		if( imageWidth > getWidth() ){
+			//image width is longer than view
+			//MIN X
+			minX = getWidth() - imageWidth - getPaddingRight() * 2.f;
+			//MAX X
+			maxX = 0.f;
+		}else{
+			//minX = 0.f;
+			minX = maxX = (getWidth() - imageWidth - getPaddingLeft() - getPaddingRight()) / 2.f; //s * 2.f;
+		}
+		
+		if(tranX < minX)
+			tranX = minX;
+		else if(tranX > maxX)
+			tranX = maxX;
+		
+		if(tranY < minY)
+			tranY = minY;
+		else if(tranY > maxY)
+			tranY = maxY;
+		
+		values[Matrix.MTRANS_X] = tranX;
+		values[Matrix.MTRANS_Y] = tranY;
+		mCurrentMatrix.setValues(values);		
+	}
+	
+	protected void updateMatrix(){
+		setImageMatrix(mCurrentMatrix);
+	}
 
 	protected void handleTranslate(MotionEvent event){
 		mCurrentMatrix.set(mSavedMatrix);
-		mCurrentMatrix.postTranslate(event.getX() - mStartPoint.x,
-				event.getY() - mStartPoint.y);
-		setImageMatrix(mCurrentMatrix);
+		mCurrentMatrix.postTranslate(event.getX() - mStartPoint.x, event.getY() - mStartPoint.y);
 	}
 
 	protected void fitCenter(){
