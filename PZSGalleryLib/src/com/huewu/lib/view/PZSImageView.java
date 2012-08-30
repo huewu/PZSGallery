@@ -5,9 +5,10 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PointF;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.util.FloatMath;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.widget.ImageView;
 
@@ -18,52 +19,69 @@ import android.widget.ImageView;
  */
 public class PZSImageView extends ImageView {
 
-	private static final String TAG = "GalleryImageView";
+	private static final String TAG = "GalleryImageView";	//debug tag.
 
-	public static final int PZS_ACTION_INIT = 100;
-	public static final int PZS_ACTION_SCALE = 1001;
-	public static final int PZS_ACTION_TRANSLATE = 1002;
-	public static final int PZS_ACTION_SCALE_TO_TRANSLATE = 1003;
-	public static final int PZS_ACTION_TRANSLATE_TO_SCALE = 1004;	
-	public static final int PZS_ACTION_FIT_CENTER = 1005;
-	public static final int PZS_ACTION_CANCEL = -1;
+	//wrapped motion event code.
+	protected static final int PZS_ACTION_INIT = 100;
+	protected static final int PZS_ACTION_SCALE = 1001;
+	protected static final int PZS_ACTION_TRANSLATE = 1002;
+	protected static final int PZS_ACTION_SCALE_TO_TRANSLATE = 1003;
+	protected static final int PZS_ACTION_TRANSLATE_TO_SCALE = 1004;	
+	protected static final int PZS_ACTION_FIT_CENTER = 1005;
+	protected static final int PZS_ACTION_CANCEL = -1;
 
 	//TODO below 2 values should be able to set from attributes.
 	private final static float MAX_SCALE_TO_SCREEN = 2.f;
 	private final static float MIN_SCALE_TO_SCREEN = .5f;
 	
-	private float mMinScaleFactor = 0.5f;	//scale to screen width / height.
-	private float mMaxScaleFactor = 2.f;	//scale to screen width / height.
-	
 	private static final long DOUBLE_TAP_MARGIN_TIME = 200;
 	private static final float MIN_SCALE_SPAN = 10.f;
+	
+	//calculated min / max scale ratio based on image & screen size.
+	private float mMinScaleFactor = 0.5f;	
+	private float mMaxScaleFactor = 2.f;
 
-	private boolean mIsFirstDraw = true;
-	private int mImageWidth;
-	private int mImageHeight;
+	private boolean mIsFirstDraw = true;	//check flag to calculate necessary init values.
+	private int mImageWidth;	//current set image width
+	private int mImageHeight;	//current set image height
 
+	/**
+	 * constructor
+	 * @param context
+	 */
 	public PZSImageView(Context context) {
 		super(context);
 		init();
 	}
 
+	/**
+	 * constructor
+	 * @param context
+	 */
 	public PZSImageView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		init();
 	}
 
+	/**
+	 * constructor
+	 * @param context
+	 */
 	public PZSImageView(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
 		init();
 	}
 
 	private void init() {
+		//should use matrix scale type.
 		setScaleType(ScaleType.MATRIX);
 		Matrix mat = getImageMatrix();
 		mat.reset();
 		setImageMatrix(mat);
 	}
-
+	
+	//TODO how to handle bitmaps that set as different ways. (by res or src attr)
+	//TODO in that case this view should be worked just as a normal image view.
 	@Override
 	public void setImageBitmap(Bitmap bm) {
 		super.setImageBitmap(bm);
@@ -87,16 +105,13 @@ public class PZSImageView extends ImageView {
 
 		super.onDraw(canvas);
 	}
-
+	
 	private void calculateScaleFactorLimit() {
 		
 		//set max / min scale factor. 
-		
-		//max: double size of screen width or height.
 		mMaxScaleFactor = Math.max( getHeight() * MAX_SCALE_TO_SCREEN / mImageHeight, 
 				getWidth() * MAX_SCALE_TO_SCREEN / mImageWidth);
 		
-		//min: half size of screen width or height.
 		mMinScaleFactor = Math.min( getHeight() * MIN_SCALE_TO_SCREEN / mImageHeight, 
 				getWidth() * MIN_SCALE_TO_SCREEN / mImageWidth);
 	}
@@ -131,6 +146,7 @@ public class PZSImageView extends ImageView {
 			break;
 		}
 		
+		//check current position of bitmap.
 		validateMatrix();
 		updateMatrix();
 		return true; // indicate event was handled
@@ -164,10 +180,10 @@ public class PZSImageView extends ImageView {
 		return 0;
 	}
 
-	/*
-	 * protected methods.
-	 */
-
+	/////////////////////////////////////////////////
+	// Related matrix calculation stuffs.
+	/////////////////////////////////////////////////	
+	
 	private Matrix mCurrentMatrix = new Matrix();
 	private Matrix mSavedMatrix = new Matrix();
 
@@ -175,6 +191,12 @@ public class PZSImageView extends ImageView {
 	private PointF mStartPoint = new PointF();
 	private PointF mMidPoint = new PointF();
 	private float mInitScaleSpan = 1f;
+	
+	protected void initGestureAction(float x, float y) {
+		mSavedMatrix.set(mCurrentMatrix);
+		mStartPoint.set(x, y);
+		mInitScaleSpan = 0.f;
+	}
 
 	/**
 	 * check user double tapped this view.. or not.
@@ -195,12 +217,6 @@ public class PZSImageView extends ImageView {
 		mLastTocuhDownTime = downTime;
 
 		return diff < DOUBLE_TAP_MARGIN_TIME;
-	}
-
-	protected void initGestureAction(float x, float y) {
-		mSavedMatrix.set(mCurrentMatrix);
-		mStartPoint.set(x, y);
-		mInitScaleSpan = 0.f;
 	}
 
 	protected void handleScale(MotionEvent event){
@@ -243,7 +259,13 @@ public class PZSImageView extends ImageView {
 		}
 	}
 	
-	protected void validateMatrix(){
+	protected void handleTranslate(MotionEvent event){
+		mCurrentMatrix.set(mSavedMatrix);
+		mCurrentMatrix.postTranslate(event.getX() - mStartPoint.x, event.getY() - mStartPoint.y);
+	}	
+	
+	private RectF mTraslateLimitRect = new RectF(); //reuse instance.
+	private void validateMatrix(){
 		float values[] = new float[9];
 		mCurrentMatrix.getValues(values);
 		
@@ -254,63 +276,50 @@ public class PZSImageView extends ImageView {
 				
 		int imageHeight = (int) (scale * mImageHeight);
 		int imageWidth = (int) (scale * mImageWidth);
-		
-		//max x pos.
-		//min x pos.
-		
-		float minX = 0.f;
-		float maxX = 0.f;
-		float minY = 0.f;
-		float maxY = 0.f;
-		
-		//don't think about optimize code. first, just write case by case.
+
+		mTraslateLimitRect.setEmpty();
+		//don't think about optimize code. first, just write code case by case.
 
 		//check TOP & BOTTOM
 		if( imageHeight > getHeight() ){
 			//image height is taller than view
-			//MIN Y
-			minY = getHeight() - imageHeight - getPaddingTop() * 2.f;
-			//MAX Y
-			maxY = 0.f;
+			mTraslateLimitRect.top = getHeight() - imageHeight - getPaddingTop() - getPaddingBottom();
+			mTraslateLimitRect.bottom = 0.f;
 		}else{
-			minY = 0.f;
-			minY = maxY = (getHeight() - imageHeight - getPaddingTop() - getPaddingBottom() ) / 2.f;
+			mTraslateLimitRect.top = mTraslateLimitRect.bottom = 
+					(getHeight() - imageHeight - getPaddingTop() - getPaddingBottom() ) / 2.f;
 		}
 
 		//check LEFT & RIGHT
 		if( imageWidth > getWidth() ){
 			//image width is longer than view
-			//MIN X
-			minX = getWidth() - imageWidth - getPaddingRight() * 2.f;
-			//MAX X
-			maxX = 0.f;
+			mTraslateLimitRect.left = getWidth() - imageWidth - getPaddingRight() - getPaddingLeft();
+			mTraslateLimitRect.right = 0.f;
 		}else{
-			//minX = 0.f;
-			minX = maxX = (getWidth() - imageWidth - getPaddingLeft() - getPaddingRight()) / 2.f; //s * 2.f;
+			mTraslateLimitRect.left = mTraslateLimitRect.right =
+					(getWidth() - imageWidth - getPaddingLeft() - getPaddingRight()) / 2.f;
 		}
+
+		float newTranX = tranX;
+		newTranX = Math.max(newTranX, mTraslateLimitRect.left);
+		newTranX = Math.min(newTranX, mTraslateLimitRect.right);
+
+		float newTranY = tranY;
+		newTranY = Math.max(newTranY, mTraslateLimitRect.top);
+		newTranY = Math.min(newTranY, mTraslateLimitRect.bottom);
 		
-		if(tranX < minX)
-			tranX = minX;
-		else if(tranX > maxX)
-			tranX = maxX;
+		values[Matrix.MTRANS_X] = newTranX;
+		values[Matrix.MTRANS_Y] = newTranY;
+		mCurrentMatrix.setValues(values);
 		
-		if(tranY < minY)
-			tranY = minY;
-		else if(tranY > maxY)
-			tranY = maxY;
-		
-		values[Matrix.MTRANS_X] = tranX;
-		values[Matrix.MTRANS_Y] = tranY;
-		mCurrentMatrix.setValues(values);		
+		if( mTraslateLimitRect.contains(tranX, tranY) == false ){
+			//set new start point. 
+			mStartPoint.offset(tranX - newTranX, tranY - newTranY);
+		}
 	}
 	
 	protected void updateMatrix(){
 		setImageMatrix(mCurrentMatrix);
-	}
-
-	protected void handleTranslate(MotionEvent event){
-		mCurrentMatrix.set(mSavedMatrix);
-		mCurrentMatrix.postTranslate(event.getX() - mStartPoint.x, event.getY() - mStartPoint.y);
 	}
 
 	protected void fitCenter(){
